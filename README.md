@@ -1,6 +1,6 @@
 # Heimdallr
 
-Heimdallr, the watchman of the gods, is also a CLI tool that uses AI to generate commands for the user.
+Heimdallr, the watchman of the gods, is also an AI CLI tool.
 
 ## Installation and Setup
 
@@ -12,12 +12,13 @@ cd path/to/heimdallr
 ./install.sh
 ```
 
-Create a `.env` file in the project directory with the following variables or set them in your environment.
+Create a `.env` file in the project directory with your OpenAI API key.
 
 ```bash
 OPENAI_API_KEY="..."
-OPENAI_BASE_URL="https://api.openai.com/v1"
 ```
+
+Customize the [config.json](./config.json) to match your OpenAI API base URL and available models.
 
 ## Usage
 
@@ -25,10 +26,7 @@ See `heimdallr --help` for more information.
 
 Sample usage:
 ```bash
-erocha@erocha-mlt:~$ heimdallr    
-Heim > What command are you looking for?
-> get GPU info                
-Heim >
+erocha@erocha-mlt:~$ heimdallr suggest "get GPU info"
 system_profiler SPDisplaysDataType
 ```
 

@@ -1,56 +1,21 @@
+import os
+import logging
+import sys
 from dataclasses import dataclass
 import platform
 from openai import OpenAI
 
-import os
-import logging
-from dotenv import load_dotenv
-import sys
-import argparse
-
+from config import AppConfig, Command, LLMQueryArgs, load_config
 from common import Color, colored
-
-
-# See build.nvidia.com for more models
-MODEL_MAP = {
-    "deepseek-large": "deepseek-ai/deepseek-r1-distill-qwen-32b",
-    "deepseek-small": "deepseek-ai/deepseek-r1-distill-qwen-7b",
-    "llama-3.2-3b": "meta/llama-3.2-3b-instruct",
-    "llama-3.3-70b": "meta/llama-3.3-70b-instruct",
-}
-DEFAULT_MODEL = "llama-3.3-70b"
 
 
 ############################################################################
 # Setup
 
-load_dotenv()
-
-_epilog = "Available models:\n\t{models}".format(
-    models="\n\t".join([f"{k}: {v}" for k, v in MODEL_MAP.items()])
-)
-
-# CLI args
-_parser = argparse.ArgumentParser(
-    description="Heimdallr, the watchman of the gods, and the AI CLI assistant.",
-    epilog=_epilog,
-    formatter_class=argparse.RawDescriptionHelpFormatter
-)
-_parser.add_argument(
-    "model",
-    nargs="?",
-    default=DEFAULT_MODEL,
-    help=f"The AI model to use [default: {DEFAULT_MODEL}]",
-)
-_parser.add_argument(
-    "-v", "--verbose", action="store_true", default=False, help="Enable verbose logging"
-)
-ARGS = _parser.parse_args()
-
 # Logging
-_level = logging.DEBUG if ARGS.verbose else logging.ERROR
+DEFAULT_LOG_LEVEL = logging.ERROR  # will be overridden by config.py if verbose is set
 logging.basicConfig(
-    level=_level,
+    level=DEFAULT_LOG_LEVEL,
     format="[%(asctime)s][%(levelname)s][%(name)s] %(message)s",
     datefmt="%H:%M:%S",
 )
@@ -67,9 +32,7 @@ class EnvironmentInfo:
     home: str
 
     def __str__(self):
-        return (
-            f"OS: {self.os}, Shell: {self.shell}, User: {self.user}, Home: {self.home}"
-        )
+        return f"OS: {self.os}, Shell: {self.shell}, User: {self.user}, Home: {self.home}"
 
 
 def get_os_info() -> str:
@@ -101,10 +64,10 @@ LOGGER.debug(f"Environment info: {ENV_INFO}")
 
 
 class AIClient:
-    def __init__(self):
+    def __init__(self, llm_query_args: LLMQueryArgs):
         self._load_env()
         self.client = OpenAI(base_url=self.url, api_key=self.key)
-        self.model = MODEL_MAP[ARGS.model]
+        self.model = llm_query_args.model
 
     def _load_env(self):
         self.key = os.getenv("OPENAI_API_KEY")
@@ -119,7 +82,7 @@ class AIClient:
 
     def get_command_suggestion(self, prompt):
         system_message = f"""
-        You are a helpful terminal assistant. When users ask for help with command-line tasks, 
+        You are a helpful terminal assistant. When users ask for help with command-line tasks,
         provide only the exact command they should run, with no additional explanation unless they specifically ask for it.
         Make sure the command is correct and efficient for their needs.
         Do not wrap the command in backticks or any other formatting.
@@ -142,23 +105,38 @@ class AIClient:
 
         return completion.choices[0].message.content
 
+
+def execute_llm_command(command: Command, config: LLMQueryArgs):
+    ai_client = AIClient(config)
+
+    if command == "suggest":
+        try:
+            prompt = config.query
+            if prompt.strip():
+                command = ai_client.get_command_suggestion(prompt)
+                command = command.strip("`")  # remove leading and trailing backticks
+                print(command)
+            else:
+                print("No prompt provided.")
+        except KeyboardInterrupt:
+            print("\nExiting...")
+        except Exception as e:
+            LOGGER.error(f"An error occurred: {str(e)}")
+            sys.exit(1)
+
+    elif command == "answer":
+        raise NotImplementedError("Answer command not implemented")
+
+
 def main():
-    ai_client = AIClient()
-    try:
-        prompt = input(colored("Heim > What command are you looking for?", Color.BLUE) + "\n> ")
-        if prompt.strip():
-            print(colored("Heim >", Color.BLUE))
-            command = ai_client.get_command_suggestion(prompt)
-            # remove leading and trailing backticks
-            command = command.strip("`")
-            print(colored(command, Color.GREEN))
-        else:
-            print("No prompt provided.")
-    except KeyboardInterrupt:
-        print("\nExiting...")
-    except Exception as e:
-        LOGGER.error(f"An error occurred: {str(e)}")
-        sys.exit(1)
+    config: AppConfig = load_config()
+
+    if config.command == "suggest" or config.command == "answer":
+        execute_llm_command(config.command, config.llm_query_args)
+    elif config.command == "exec":
+        raise NotImplementedError("Exec command not implemented")
+    elif config.command == "session":
+        raise NotImplementedError("Session command not implemented")
 
 
 if __name__ == "__main__":

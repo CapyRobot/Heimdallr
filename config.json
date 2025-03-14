@@ -1,0 +1,11 @@
+{
+    "model_map": {
+        "deepseek-large": "deepseek-ai/deepseek-r1-distill-qwen-32b",
+        "deepseek-small": "deepseek-ai/deepseek-r1-distill-qwen-7b",
+        "llama-3.2-3b": "meta/llama-3.2-3b-instruct",
+        "llama-3.3-70b": "meta/llama-3.3-70b-instruct",
+        "__comment__": "see build.nvidia.com for more models"
+    },
+    "default_model": "llama-3.3-70b",
+    "openai_base_url": "https://integrate.api.nvidia.com/v1"
+}
