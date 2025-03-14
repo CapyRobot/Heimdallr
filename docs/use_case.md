@@ -113,3 +113,20 @@ $ heimdallr session end
 $ heimdallr session status
 > No active session. Run `heimdallr session` to start a new session.
 ```
+
+Starting a session:
+
+1. Assert that there isn't an active session.
+2. Cleanup old session files (policy: older than 7 days - or as configured)
+3. Create a new session.
+    3.1 Set env variables
+    3.2 Create session directory in {heimdallr_data_dir}/session_{session_id}/
+    3.3 Start recording the terminal history into {heimdallr_data_dir}/session_{session_id}/terminal_history.txt
+    3.4 Start recording the chat history into {heimdallr_data_dir}/session_{session_id}/chat_history.json
+
+Ending a session:
+
+1. Assert that there is an active session.
+2. Stop recording.
+3. Move session files to {heimdallr_data_dir}/archive/session_{session_id}
+4. Restore env variables

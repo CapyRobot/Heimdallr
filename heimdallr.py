@@ -1,12 +1,9 @@
-import os
 import logging
 import sys
-from dataclasses import dataclass
-import platform
-from openai import OpenAI
 
 from config import AppConfig, load_config
 from llm import execute_llm_command
+from session import execute_session_command
 
 # Logging
 DEFAULT_LOG_LEVEL = logging.ERROR  # will be overridden by config.py if verbose is set
@@ -26,7 +23,7 @@ def main():
     elif config.command == "exec":
         raise NotImplementedError("Exec command not implemented")
     elif config.command == "session":
-        raise NotImplementedError("Session command not implemented")
+        execute_session_command(config.session_action)
 
 
 if __name__ == "__main__":

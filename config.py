@@ -9,6 +9,8 @@ from typing import Literal
 LOGGER = logging.getLogger(__name__)
 
 Command = Literal["suggest", "answer", "exec", "session"]
+HistoryType = Literal["chat", "lines", "commands"]
+SessionAction = Literal["start", "status", "end"]
 
 
 def create_cli_args_parser():
@@ -41,7 +43,7 @@ def create_cli_args_parser():
     session_parser.add_argument(
         "action",
         nargs="?",
-        choices=["start", "status", "end"],
+        choices=SessionAction.__args__,
         default="start",
         help="Session action to perform",
     )
@@ -79,9 +81,6 @@ def parse_cli_args() -> tuple[Command, argparse.Namespace]:
     return args.command, args
 
 
-HistoryType = Literal["chat", "lines", "commands"]
-
-
 @dataclass
 class LLMQueryArgs:
     query: str
@@ -116,7 +115,7 @@ class AppConfig:
     command: Command
     llm_query_args: LLMQueryArgs | None = None  # Only used for the suggest, answer commands
     exec_suggestion_number: int | None = None  # Only used for the exec command
-    session_action: str | None = None  # Only used for the session command
+    session_action: SessionAction | None = None  # Only used for the session command
 
 
 def load_config() -> AppConfig:
