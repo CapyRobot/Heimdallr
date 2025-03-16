@@ -3,7 +3,7 @@
 # only zsh is supported for now
 # TODO: add support for bash
 if [ -z "$ZSH_VERSION" ]; then
-    echo_red "zsh is required to use heimdallr_session"
+    echo "zsh is required to use heimdallr_session"
     return 1
 fi
 
@@ -12,12 +12,15 @@ ARCHIVE_DIR="$LOG_DIR/archive"
 mkdir -p "$LOG_DIR"
 mkdir -p "$ARCHIVE_DIR"
 
-echo_red() {
-    echo $1
+echo_heimdallr() {
+    echo "heimdallr > $1"
 }
 
-echo_blue() {
-    echo $1
+assert_script_is_sourced() {
+    if [[ $ZSH_EVAL_CONTEXT != *:file:* ]]; then
+        echo_heimdallr "This script must be sourced, not executed"
+        exit 1
+    fi
 }
 
 is_session_active() {
@@ -32,17 +35,19 @@ cleanup_old_sessions() {
     # Deleting sessions older than 7 days and echoing the deleted sessions
     # if there are sessions older than 7 days
     if [ -n "$(find "$ARCHIVE_DIR" -type f -mtime +7)" ]; then
-        echo_blue "heimdallr > deleting sessions older than 7 days..."
+        echo_heimdallr "deleting sessions older than 7 days..."
         find "$ARCHIVE_DIR" -type f -mtime +7 -exec sh -c 'echo "Deleting $1" && rm -rf "$1"' _ {} \;
     fi
 }
 cleanup_old_sessions
 
 start_session() {
+    assert_script_is_sourced
+
     if is_session_active; then
-        echo_red "Session already active. Stop it first before starting a new one."
-        echo_red "Run 'source heimdallr_session stop' to stop the current session."
-        echo_red "See 'heimdallr_session status' for more session information."
+        echo_heimdallr "Session already active. Stop it first before starting a new one."
+        echo_heimdallr "Run 'source heimdallr_session stop' to stop the current session."
+        echo_heimdallr "See 'heimdallr_session status' for more session information."
         return
     fi
 
@@ -52,8 +57,8 @@ start_session() {
     export HEIMDALLR_SESSION_ID="$session_id"
     export HEIMDALLR_SESSION_CMDS_FILE="$log_path"
     export HEIMDALLR_SESSION_CHAT_FILE="$log_path"
-    echo_blue "heimdallr > Starting session $session_id..."
-    echo_blue "heimdallr > Session history: $log_path"
+    echo_heimdallr "Starting session $session_id..."
+    echo_heimdallr "Session history: $log_path"
 
     log_start() {
         echo "New session"
@@ -82,6 +87,8 @@ start_session() {
 }
 
 stop_session() {
+    assert_script_is_sourced
+
     log_stop() {
         echo "----------------------------------------"
         echo "Session ended"
@@ -101,8 +108,8 @@ stop_session() {
     mv "$HEIMDALLR_SESSION_CMDS_FILE" "$ARCHIVE_DIR/session_$HEIMDALLR_SESSION_ID.log"
     log_stop >> "$ARCHIVE_DIR/session_$HEIMDALLR_SESSION_ID.log"
 
-    echo_blue "heimdallr > Session $HEIMDALLR_SESSION_ID stopped."
-    echo_blue "heimdallr > Archived session at $ARCHIVE_DIR/session_$HEIMDALLR_SESSION_ID.log"
+    echo_heimdallr "Session $HEIMDALLR_SESSION_ID stopped."
+    echo_heimdallr "Archived session at $ARCHIVE_DIR/session_$HEIMDALLR_SESSION_ID.log"
 
     unset HEIMDALLR_SESSION_ID
     unset HEIMDALLR_SESSION_CMDS_FILE
@@ -111,14 +118,14 @@ stop_session() {
 
 report_status() {
     if is_session_active; then
-        echo_blue "heimdallr > Session $HEIMDALLR_SESSION_ID is active."
-        echo_blue "heimdallr > Session history: $HEIMDALLR_SESSION_CMDS_FILE"
+        echo_heimdallr "Session $HEIMDALLR_SESSION_ID is active."
+        echo_heimdallr "Session history: $HEIMDALLR_SESSION_CMDS_FILE"
         lines=$(wc -l < "$HEIMDALLR_SESSION_CMDS_FILE" | tr -d ' ')
         cmd_count=$(grep -c "^$ " "$HEIMDALLR_SESSION_CMDS_FILE" || echo 0)
         size=$(ls -lh "$HEIMDALLR_SESSION_CMDS_FILE" | awk '{print $5}')
-        echo_blue "heimdallr > History size: $lines lines, $cmd_count commands, $size"
+        echo_heimdallr "History size: $lines lines, $cmd_count commands, $size"
     else
-        echo_red "heimdallr > No active session."
+        echo_heimdallr "No active session."
     fi
 }
 
@@ -129,5 +136,8 @@ elif [ "$1" = "stop" ]; then
 elif [ "$1" = "status" ]; then
     report_status
 else
-    echo "Usage: $0 start | stop | status"
+    echo_heimdallr "Invalid usage."
+    echo "Usage:"
+    echo "    source heim_session start | stop"
+    echo "    heim_session status"
 fi

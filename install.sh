@@ -14,7 +14,13 @@ pip install -r requirements.txt
 deactivate
 
 # add script to path - override if exists
-if [ -f /usr/local/bin/heimdallr ]; then
-    sudo rm /usr/local/bin/heimdallr
+if [ -f /usr/local/bin/heim ]; then
+    sudo rm /usr/local/bin/heim
 fi
-sudo ln -s $(pwd)/run.sh /usr/local/bin/heimdallr
+sudo ln -s $(pwd)/run.sh /usr/local/bin/heim
+
+# add session.sh to path
+if [ -f /usr/local/bin/heim_session ]; then
+    sudo rm /usr/local/bin/heim_session
+fi
+sudo ln -s $(pwd)/session.sh /usr/local/bin/heim_session
