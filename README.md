@@ -54,3 +54,12 @@ heimdallr > History size: 368 lines, 13 commands, 20.8K
 ...
 erocha@erocha-mlt:~$ source heim_session stop
 ```
+
+Piping data to Heimdallr:
+```bash
+erocha@erocha-mlt:~$ cat /my/file/path | heim answer "explain the content of the file"
+...
+
+erocha@erocha-mlt:~$ cat /my/file/path | heim answer "reformat the content to a more readable format"
+...
+```

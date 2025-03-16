@@ -2,6 +2,7 @@ from dataclasses import dataclass
 import platform
 import logging
 import os
+import sys
 from openai import OpenAI
 
 from config import LLMQueryArgs, Command
@@ -53,6 +54,23 @@ ENV_INFO = get_environment_info()
 
 
 ############################################################################
+# get piped input
+
+
+def get_piped_input() -> str | None:
+    if not sys.stdin.isatty():
+        return sys.stdin.read()
+    return None
+
+
+def get_piped_input_message() -> dict | None:
+    piped_input = get_piped_input()
+    if piped_input is None:
+        return None
+    return {"role": "user", "content": f"User provided data: {piped_input}"}
+
+
+############################################################################
 
 
 class AIClient:
@@ -99,11 +117,13 @@ class AIClient:
         return " ".join(instructions.replace("\n", " ").split())
 
     def get_response(self, prompt, command: Command):
-        system_message = self._get_system_instructions(command)
-        messages = [
-            {"role": "system", "content": system_message},
-            {"role": "user", "content": prompt},
-        ]
+        messages = [{"role": "system", "content": self._get_system_instructions(command)}]
+
+        piped_input_message = get_piped_input_message()
+        if piped_input_message is not None:
+            messages.append(piped_input_message)
+
+        messages.append({"role": "user", "content": prompt})
 
         if self.config.history_type == "chat":
             raise NotImplementedError("Chat history is not supported yet")
