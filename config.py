@@ -9,7 +9,7 @@ from typing import Literal
 LOGGER = logging.getLogger(__name__)
 
 Command = Literal["suggest", "answer", "exec", "session"]
-HistoryType = Literal["chat", "lines", "commands"]
+HistoryType = Literal["chat", "commands"]
 SessionAction = Literal["start", "status", "end"]
 
 
@@ -22,8 +22,8 @@ def create_cli_args_parser():
 
     def add_llm_query_args(parser: argparse.ArgumentParser):
         parser.add_argument("query", help="User query")
-        parser.add_argument("--history", help="Type of history to include (chat/N-lines/N-commands)")
-        parser.add_argument("--context", help="Path to file to use as context")
+        parser.add_argument("--history", help="Type of history to include [chat, commands (all), N-commands (last N)]")
+        parser.add_argument("--context", help="[file_path, input (stdin)]")
         parser.add_argument("--model", help="The model to use (within options defined in configuration)")
 
     # 'suggest' command
@@ -62,7 +62,6 @@ def parse_cli_args() -> tuple[Command, argparse.Namespace]:
         LOGGER.debug(f"{args.command}ing for query: {args.query}")
         if args.history:
             LOGGER.debug(f"Using history: {args.history}")
-            raise NotImplementedError("History feature not implemented")
         if args.context:
             LOGGER.debug(f"Using context from: {args.context}")
             raise NotImplementedError("Context feature not implemented")
@@ -100,9 +99,12 @@ class LLMQueryArgs:
         if history == "chat":
             return "chat", None
 
+        if history == "commands":
+            return "commands", None
+
         if len(history.split("-")) == 2:
             [n, type] = history.split("-")
-            if n.isdigit() and int(n) > 0 and type in ["lines", "commands"]:
+            if n.isdigit() and int(n) > 0 and type in ["commands"]:
                 return type, int(n)
 
         raise ValueError(

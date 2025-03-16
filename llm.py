@@ -2,10 +2,10 @@ from dataclasses import dataclass
 import platform
 import logging
 import os
-import sys
 from openai import OpenAI
 
 from config import LLMQueryArgs, Command
+from session import get_session_runtime
 
 LOGGER = logging.getLogger(__name__)
 
@@ -58,28 +58,65 @@ ENV_INFO = get_environment_info()
 class AIClient:
     def __init__(self, llm_query_args: LLMQueryArgs):
         LOGGER.debug(f"Environment info: {ENV_INFO}")
-        self.model = llm_query_args.model
-        self.key = llm_query_args.openai_api_key
-        self.url = llm_query_args.openai_base_url
+        self.config = llm_query_args
+        self.client = OpenAI(base_url=llm_query_args.openai_base_url, api_key=llm_query_args.openai_api_key)
+        self.session_runtime = get_session_runtime()
+        if self.session_runtime is None:
+            if llm_query_args.history_type is not None:
+                raise ValueError("History context is not supported when no session is active")
 
-        self.client = OpenAI(base_url=self.url, api_key=self.key)
+    def _get_system_instructions(self, command: Command) -> str:
+        template = """
+            You are a helpful terminal assistant to help users with command-line tasks.
+            {command_specific_instructions}
+            {how_to_suggest_commands}
+            """
+        how_to_suggest_commands = """
+            For any suggested commands, make sure the command is correct and efficient for their needs.
+            To facilitate copy-paste, do not wrap suggested commands in backticks or any other formatting,
+            and do not include any other text or formatting in the line of the command.
+            Always suggest command with the format [<suggestion_number>] <command> so the user can easily
+            reference the command.
+            """
+        command_specific_instructions = ""
+        if command == "suggest":
+            command_specific_instructions = """
+            When users ask for help with command-line suggestions, provide only the exact command they should run
+            with no additional explanation unless they specifically ask for it.
+            Only provide multiple suggestions if the user asks for them.
+            """
+        elif command == "answer":
+            command_specific_instructions = """
+            Answer the user's question based on the information provided.
+            When appropriate, suggest commands to help the user.
+            """
+        else:
+            raise ValueError(f"Invalid command: {command}")
+        instructions = template.format(
+            command_specific_instructions=command_specific_instructions,
+            how_to_suggest_commands=how_to_suggest_commands,
+        )
+        return " ".join(instructions.replace("\n", " ").split())
 
-    def get_command_suggestion(self, prompt):
-        system_message = f"""
-        You are a helpful terminal assistant. When users ask for help with command-line tasks,
-        provide only the exact command they should run, with no additional explanation unless they specifically ask for it.
-        Make sure the command is correct and efficient for their needs.
-        Do not wrap the command in backticks or any other formatting.
-        Here is some useful information about the environment: {ENV_INFO}
-        """
-
+    def get_response(self, prompt, command: Command):
+        system_message = self._get_system_instructions(command)
         messages = [
             {"role": "system", "content": system_message},
             {"role": "user", "content": prompt},
         ]
 
+        if self.config.history_type == "chat":
+            raise NotImplementedError("Chat history is not supported yet")
+        elif self.config.history_type == "commands":
+            messages.append(
+                {
+                    "role": "user",
+                    "content": f"Here is the terminal history: {self.session_runtime.get_command_history(self.config.history_length)}",
+                }
+            )
+
         completion = self.client.chat.completions.create(
-            model=self.model,
+            model=self.config.model,
             messages=messages,
             temperature=0.2,  # Lower temperature for more precise responses
             top_p=0.7,
@@ -92,16 +129,10 @@ class AIClient:
 
 def execute_llm_command(command: Command, config: LLMQueryArgs):
     ai_client = AIClient(config)
-
-    if command == "suggest":
-
-        prompt = config.query
-        if prompt.strip():
-            command = ai_client.get_command_suggestion(prompt)
-            command = command.strip("`")  # remove leading and trailing backticks
-            print(command)
-        else:
-            print("No prompt provided.")
-
-    elif command == "answer":
-        raise NotImplementedError("Answer command not implemented")
+    prompt = config.query
+    if prompt.strip():
+        answer = ai_client.get_response(prompt, command)
+        print(answer)
+    else:
+        answer = ai_client.get_response(prompt, command)
+        print("No prompt provided.")
