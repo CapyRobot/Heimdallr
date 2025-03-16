@@ -6,12 +6,12 @@ import sys
 from openai import OpenAI
 
 from config import LLMQueryArgs, Command
-from session import get_session_runtime
+from session import get_session_runtime, print_session_usage
 
 LOGGER = logging.getLogger(__name__)
 
 ############################################################################
-# Environment info
+# Environment info / Context
 
 
 # get useful environment info from the system like OS, shell type, etc.
@@ -53,10 +53,6 @@ def get_environment_info() -> EnvironmentInfo:
 ENV_INFO = get_environment_info()
 
 
-############################################################################
-# get piped input
-
-
 def get_piped_input() -> str | None:
     if not sys.stdin.isatty():
         return sys.stdin.read()
@@ -70,6 +66,11 @@ def get_piped_input_message() -> dict | None:
     return {"role": "user", "content": f"User provided data: {piped_input}"}
 
 
+def get_file_content(file_path: str) -> str:
+    with open(file_path, "r") as file:
+        return file.read()
+
+
 ############################################################################
 
 
@@ -80,8 +81,11 @@ class AIClient:
         self.client = OpenAI(base_url=llm_query_args.openai_base_url, api_key=llm_query_args.openai_api_key)
         self.session_runtime = get_session_runtime()
         if self.session_runtime is None:
-            if llm_query_args.history_type is not None:
-                raise ValueError("History context is not supported when no session is active")
+            for context in llm_query_args.context:
+                if context.type == "chat" or context.type == "commands":
+                    LOGGER.error("Terminal history is not supported when no session is active.")
+                    print_session_usage()
+                    exit(1)
 
     def _get_system_instructions(self, command: Command) -> str:
         template = """
@@ -123,17 +127,28 @@ class AIClient:
         if piped_input_message is not None:
             messages.append(piped_input_message)
 
-        messages.append({"role": "user", "content": prompt})
+        for context in self.config.context:
+            if context.type == "chat":
+                raise NotImplementedError("Chat history is not supported yet")
+            elif context.type == "commands":
+                messages.append(
+                    {
+                        "role": "user",
+                        "content": f"Here is the terminal history: {self.session_runtime.get_command_history(context.data)}",
+                    }
+                )
+            elif context.type == "file":
+                messages.append(
+                    {
+                        "role": "user",
+                        "content": f"User provided data from file {context.data}: {get_file_content(context.data)}",
+                    }
+                )
+            elif context.type == "input":
+                data = input("input context > ")
+                messages.append({"role": "user", "content": f"User provided input: {data}"})
 
-        if self.config.history_type == "chat":
-            raise NotImplementedError("Chat history is not supported yet")
-        elif self.config.history_type == "commands":
-            messages.append(
-                {
-                    "role": "user",
-                    "content": f"Here is the terminal history: {self.session_runtime.get_command_history(self.config.history_length)}",
-                }
-            )
+        messages.append({"role": "user", "content": prompt})
 
         completion = self.client.chat.completions.create(
             model=self.config.model,

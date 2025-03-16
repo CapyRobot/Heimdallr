@@ -2,51 +2,35 @@ import os
 from dotenv import load_dotenv
 import json
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import argparse
 from typing import Literal
 
 LOGGER = logging.getLogger(__name__)
 
-Command = Literal["suggest", "answer", "exec", "session"]
-HistoryType = Literal["chat", "commands"]
-SessionAction = Literal["start", "status", "end"]
+Command = Literal["suggest", "answer", "exec"]
 
 
 def create_cli_args_parser():
-    parser = argparse.ArgumentParser(description="Heimdallr, the watchman of the gods, and the AI CLI assistant.")
+    parser = argparse.ArgumentParser(
+        description="Heimdallr, the watchman of the gods, and the AI CLI assistant.",
+        usage="'heim [options] -- query' or 'heim --exec <suggestion_number>'",
+    )
     parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose logging")
 
-    # Create subparsers for different commands
-    subparsers = parser.add_subparsers(dest="command", required=True)
+    # Options for the 'suggest' and 'answer' commands
+    parser.add_argument("-s", "--suggest", action="store_true", help="Get succint command suggestions, no explanations")
+    parser.add_argument("-c", "--commands", help="include terminal command history as context [all, N (last N)]")
+    parser.add_argument("--chat", help="include Heimdallr chat history as context [all, N (last N)]")
+    parser.add_argument("-f", "--file", help="include file content as context")
+    parser.add_argument("-i", "--input", action="store_true", help="request input from user to provide context")
+    parser.add_argument("-m", "--model", help="The model to use (within options defined in configuration)")
 
-    def add_llm_query_args(parser: argparse.ArgumentParser):
-        parser.add_argument("query", help="User query")
-        parser.add_argument("--history", help="Type of history to include [chat, commands (all), N-commands (last N)]")
-        parser.add_argument("--context", help="[file_path, input (stdin)]")
-        parser.add_argument("--model", help="The model to use (within options defined in configuration)")
+    # Execute suggestion
+    parser.add_argument("-e", "--exec", type=int, metavar="N", help="Execute suggestion number N")
 
-    # 'suggest' command
-    suggest_parser = subparsers.add_parser("suggest", help="Get command suggestions")
-    add_llm_query_args(suggest_parser)
-
-    # 'answer' command
-    answer_parser = subparsers.add_parser("answer", help="Get detailed answers")
-    add_llm_query_args(answer_parser)
-
-    # 'exec' command
-    exec_parser = subparsers.add_parser("exec", help="Execute a suggested command")
-    exec_parser.add_argument("suggestion_number", type=int, help="Number of the suggestion to execute")
-
-    # 'session' command
-    session_parser = subparsers.add_parser("session", help="Manage terminal recording sessions")
-    session_parser.add_argument(
-        "action",
-        nargs="?",
-        choices=SessionAction.__args__,
-        default="start",
-        help="Session action to perform",
-    )
+    # Query will be everything after --
+    parser.add_argument("query", nargs="*", help="The query to process")
 
     return parser
 
@@ -58,26 +42,34 @@ def parse_cli_args() -> tuple[Command, argparse.Namespace]:
     if args.verbose:
         logging.getLogger().setLevel(logging.DEBUG)
 
-    if args.command == "answer" or args.command == "suggest":
-        LOGGER.debug(f"{args.command}ing for query: {args.query}")
-        if args.history:
-            LOGGER.debug(f"Using history: {args.history}")
-        if args.context:
-            LOGGER.debug(f"Using context from: {args.context}")
-            raise NotImplementedError("Context feature not implemented")
+    if args.exec:
+        command = "exec"
+    else:
+        command = "suggest" if args.suggest else "answer"
+        args.query = " ".join(args.query)
+        LOGGER.debug(f"{command}ing for query: {args.query}")
+
+        if args.commands:
+            LOGGER.debug(f"Using commands history: {args.commands}")
+        if args.file:
+            LOGGER.debug(f"Using file content: {args.file}")
+        if args.input:
+            LOGGER.debug(f"Requesting input from user")
+        if args.chat:
+            LOGGER.debug(f"Using chat history: {args.chat}")
         if args.model:
             LOGGER.debug(f"Using model: {args.model}")
 
-    elif args.command == "exec":
-        LOGGER.debug(f"Executing suggestion number: {args.suggestion_number}")
-
-    elif args.command == "session":
-        LOGGER.debug(f"Session action: {args.action}")
-
-    LOGGER.info(f"Parsed CLI command: {args.command}")
+    LOGGER.info(f"Parsed CLI command: {command}")
     LOGGER.info(f"Parsed CLI other args: {args}")
 
-    return args.command, args
+    return command, args
+
+
+@dataclass
+class Context:
+    type: Literal["chat", "commands", "file", "input"]
+    data: int | str | None = None
 
 
 @dataclass
@@ -86,30 +78,7 @@ class LLMQueryArgs:
     model: str
     openai_api_key: str
     openai_base_url: str
-    history_type: HistoryType | None = None
-    history_length: int | None = None
-    context: str | None = None
-
-    @staticmethod
-    def history_from_str(history: str | None) -> tuple[HistoryType | None, int | None]:
-        if history is None:
-            return None, None
-
-        # Validation: accept "chat", "{int>0}-lines", "{int>0}-commands"
-        if history == "chat":
-            return "chat", None
-
-        if history == "commands":
-            return "commands", None
-
-        if len(history.split("-")) == 2:
-            [n, type] = history.split("-")
-            if n.isdigit() and int(n) > 0 and type in ["commands"]:
-                return type, int(n)
-
-        raise ValueError(
-            f"Invalid history: {history}. Acceptable values are: chat, N-lines, N-commands (where N is an integer > 0)."
-        )
+    context: list[Context] = field(default_factory=list)
 
 
 @dataclass
@@ -117,7 +86,6 @@ class AppConfig:
     command: Command
     llm_query_args: LLMQueryArgs | None = None  # Only used for the suggest, answer commands
     exec_suggestion_number: int | None = None  # Only used for the exec command
-    session_action: SessionAction | None = None  # Only used for the session command
 
 
 def load_config() -> AppConfig:
@@ -138,23 +106,28 @@ def load_config() -> AppConfig:
         except KeyError:
             LOGGER.error(f"Invalid model: {cli_args.model}. Acceptable values are: {model_map.keys()}")
             raise
-        history_type, history_length = LLMQueryArgs.history_from_str(cli_args.history)
+        history = []
+        if cli_args.commands:
+            history.append(
+                Context(type="commands", data=None if cli_args.commands == "all" else int(cli_args.commands))
+            )
+        if cli_args.chat:
+            history.append(Context(type="chat", data=None if cli_args.chat == "all" else int(cli_args.chat)))
+        if cli_args.file:
+            history.append(Context(type="file", data=cli_args.file))
+        if cli_args.input:
+            history.append(Context(type="input"))
         llm_query_args = LLMQueryArgs(
             query=cli_args.query,
             model=model,
             openai_api_key=env_config["openai_api_key"],
             openai_base_url=file_config["openai_base_url"],
-            history_type=history_type,
-            history_length=history_length,
-            context=cli_args.context,
+            context=history,
         )
         config = AppConfig(command=command, llm_query_args=llm_query_args)
 
     elif command == "exec":
-        config = AppConfig(command=command, exec_suggestion_number=cli_args.suggestion_number)
-
-    elif command == "session":
-        config = AppConfig(command=command, session_action=cli_args.action)
+        config = AppConfig(command=command, exec_suggestion_number=cli_args.exec)
 
     else:
         raise ValueError(f"Invalid command: {command}")

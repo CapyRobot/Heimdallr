@@ -3,7 +3,6 @@ import os
 import logging
 
 from common import Color, colored
-from config import SessionAction
 
 LOGGER = logging.getLogger(__name__)
 
@@ -122,11 +121,11 @@ def get_session_runtime() -> Runtime | None:
     return Runtime()
 
 
-def execute_session_command(_: SessionAction):
-    print(colored(f"heimdallr > deprecated. Use the shell script instead.", Color.RED))
-    print(colored(f"$ source heim_session start", Color.RED))
-    print(colored(f"$ source heim_session stop", Color.RED))
-    print(colored(f"$ heim_session status", Color.RED))
+def print_session_usage():
+    print(colored(f"heimdallr > Use the shell script to start/stop/status sessions", Color.RED))
+    print(colored(f"    $ source heim_session start", Color.RED))
+    print(colored(f"    $ source heim_session stop", Color.RED))
+    print(colored(f"    $ heim_session status", Color.RED))
 
 
 if __name__ == "__main__":
