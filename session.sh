@@ -129,15 +129,49 @@ report_status() {
     fi
 }
 
+report_history() {
+    if is_session_active; then
+        echo_heimdallr "Session $HEIMDALLR_SESSION_ID command history:"
+        # replace "$ " with ">> " to not affect command history parsing later
+        cat "$HEIMDALLR_SESSION_CMDS_FILE" | grep "^$ " | sed 's/^\$ />> /g'
+    else
+        echo_heimdallr "No active session."
+    fi
+}
+
+print_usage() {
+    echo
+    echo "Usage:"
+    echo "    source heim_session start | stop | restart"
+    echo "    heim_session status | history"
+    echo
+}
+
+
+if [ $# -eq 0 ]; then
+    print_usage
+    return 1
+fi
+
 if [ "$1" = "start" ]; then
     start_session
+    return 0
 elif [ "$1" = "stop" ]; then
     stop_session
+    return 0
+elif [ "$1" = "restart" ]; then
+    stop_session
+    clear
+    start_session
+    return 0
 elif [ "$1" = "status" ]; then
     report_status
-else
-    echo_heimdallr "Invalid usage."
-    echo "Usage:"
-    echo "    source heim_session start | stop"
-    echo "    heim_session status"
+    return 0
+elif [ "$1" = "history" ]; then
+    report_history
+    return 0
 fi
+
+echo_heimdallr "Invalid usage."
+print_usage
+return 1
