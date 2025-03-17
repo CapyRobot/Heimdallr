@@ -6,6 +6,8 @@ from dataclasses import dataclass, field
 import argparse
 from typing import Literal
 
+from common import exit_with_error
+
 LOGGER = logging.getLogger(__name__)
 
 Command = Literal["suggest", "answer", "exec"]
@@ -42,8 +44,9 @@ def parse_cli_args() -> tuple[Command, argparse.Namespace]:
     if args.verbose:
         logging.getLogger().setLevel(logging.DEBUG)
 
-    if args.exec:
+    if args.exec is not None:
         command = "exec"
+        LOGGER.debug(f"CLI exec command number: {args.exec}")
     else:
         command = "suggest" if args.suggest else "answer"
         args.query = " ".join(args.query)
@@ -99,13 +102,12 @@ def load_config() -> AppConfig:
     load_dotenv()
     env_config = {"openai_api_key": os.getenv("OPENAI_API_KEY")}
     LOGGER.debug(f"Loaded env config: {env_config}")
-    if command == "suggest" or command == "answer":
+    if command in ["suggest", "answer"]:
         model_map = file_config["model_map"]
         try:
             model = model_map[cli_args.model if cli_args.model else file_config["default_model"]]
         except KeyError:
-            LOGGER.error(f"Invalid model: {cli_args.model}. Acceptable values are: {model_map.keys()}")
-            raise
+            exit_with_error(f"Invalid model: {cli_args.model}. Acceptable values are: {model_map.keys()}", LOGGER)
         history = []
         if cli_args.commands:
             history.append(

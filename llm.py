@@ -5,6 +5,7 @@ import os
 import sys
 from openai import OpenAI
 
+from common import exit_with_error
 from config import LLMQueryArgs, Command
 from session import get_session_runtime, print_session_usage
 
@@ -83,9 +84,8 @@ class AIClient:
         if self.session_runtime is None:
             for context in llm_query_args.context:
                 if context.type == "chat" or context.type == "commands":
-                    LOGGER.error("Terminal history is not supported when no session is active.")
                     print_session_usage()
-                    exit(1)
+                    exit_with_error("Terminal history is not supported when no session is active.", LOGGER)
 
     def _get_system_instructions(self, command: Command) -> str:
         template = """
@@ -169,5 +169,4 @@ def execute_llm_command(command: Command, config: LLMQueryArgs):
         answer = ai_client.get_response(prompt, command)
         print(answer)
     else:
-        answer = ai_client.get_response(prompt, command)
-        print("No prompt provided.")
+        exit_with_error("No prompt provided.", LOGGER)

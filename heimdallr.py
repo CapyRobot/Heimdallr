@@ -3,6 +3,7 @@ import sys
 
 from config import AppConfig, load_config
 from llm import execute_llm_command
+from command_executor import execute
 
 # Logging
 DEFAULT_LOG_LEVEL = logging.ERROR  # will be overridden by config.py if verbose is set
@@ -20,7 +21,7 @@ def main():
     if config.command == "suggest" or config.command == "answer":
         execute_llm_command(config.command, config.llm_query_args)
     elif config.command == "exec":
-        raise NotImplementedError("Exec command not implemented")
+        execute(config.exec_suggestion_number)  # this command will exit the program
 
 
 if __name__ == "__main__":
