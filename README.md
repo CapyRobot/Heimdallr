@@ -48,6 +48,12 @@ input context > ... user input ...
 
 Include terminal history as context:
 ```bash
+erocha@erocha-mlt:~$ heim_session
+
+Usage:
+    source heim_session start | stop | restart
+    heim_session status | history
+
 erocha@erocha-mlt:~$ source heim_session start  # start a session, this can be added to your .bashrc/.zshrc
 
 ... executed commands are logged ...
@@ -65,7 +71,7 @@ heimdallr > Session 2025-03-16-16-26-40 is active.
 heimdallr > Session history: /Users/erocha/.cache/heimdallr/sessions/session_2025-03-16-16-26-40.log
 heimdallr > History size: 368 lines, 13 commands, 20.8K
 ...
-erocha@erocha-mlt:~$ source heim_session stop
+erocha@erocha-mlt:~$ source heim_session stop  # stop the session and archive the log files
 ```
 
 Execute a suggestion:
