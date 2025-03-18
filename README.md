@@ -12,7 +12,7 @@ cd path/to/heimdallr
 ./install.sh
 ```
 
-Create a `.env` file in the project directory with your OpenAI API key.
+Create a `.env` file in the project directory with your OpenAI API key or export the key as an environment variable of same name.
 
 ```bash
 OPENAI_API_KEY="..."
