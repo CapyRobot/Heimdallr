@@ -2,24 +2,6 @@
 
 Heimdallr, the watchman of the gods, is also an AI CLI tool.
 
-## Installation and Setup
-
-The installation script will create a virtual environment and install the necessary dependencies in the project directory.
-Note that the project directory cannot be deleted after installation as of now we use symlinks pointing to the project directory.
-
-```bash
-cd path/to/heimdallr
-./install.sh
-```
-
-Create a `.env` file in the project directory with your OpenAI API key or export the key as an environment variable of same name.
-
-```bash
-OPENAI_API_KEY="..."
-```
-
-Customize the [config.json](./config.json) to match your OpenAI API base URL and available models.
-
 ## Usage examples
 
 See `heim --help` for more information.
@@ -82,3 +64,29 @@ erocha@erocha-mlt:~$ heim --suggest -- get GPU info. provide multiple suggestion
 erocha@erocha-mlt:~$ heim --exec 2  # execute the second suggestion
 ... heim will execute the command and show the output ...
 ```
+
+## Installation and Setup
+
+> The installation is currently hacky and should be improved. It will simply download requirements and create symlinks in `/usr/local/bin` that point to the project directory.
+
+The installation script will create a virtual environment and install the necessary dependencies in the project directory.
+Note that the project directory cannot be deleted after installation as of now we use symlinks pointing to the project directory.
+
+```bash
+cd path/to/heimdallr
+./install.sh
+```
+
+Create a `.env` file in the project directory with your OpenAI API key or export the key as an environment variable of same name.
+
+```bash
+OPENAI_API_KEY="..."
+```
+
+Customize the [config.json](./config.json) to match your OpenAI API base URL and available models.
+
+# TODO / Help wanted
+
+1. Refactor project structure to align with the standard python project structure.
+2. Improve installation (see note above).
+3. Add linux support (currently only MacOS/zsh is supported).
