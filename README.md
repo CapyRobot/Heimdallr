@@ -8,7 +8,7 @@ See `heim --help` for more information.
 
 Ask Heimdallr any question:
 ```bash
-erocha@erocha-mlt:~$ heim what is the capital of France?
+erocha@erocha-mlt:~$ heim what is the capital of France
 The capital of France is Paris.
 ```
 

@@ -41,6 +41,13 @@ cleanup_old_sessions() {
 }
 cleanup_old_sessions
 
+# Returns true if the command is TTY-sensitive or uses a terminal UI,
+# and should be excluded from output redirection to avoid breaking behavior.
+_should_skip_output_logging() {
+    local cmd="$1"
+    [[ "$cmd" =~ ^(scp|ssh|rsync|sftp|top|htop|less|more|man|vim|nano|emacs|watch|tmux|screen|fzf|peco|dialog|whiptail|sshpass) ]]
+}
+
 start_session() {
     assert_script_is_sourced
 
@@ -75,13 +82,25 @@ start_session() {
 
     my_preexec() {
         log_command "$1" >>"$log_path"
+        if _should_skip_output_logging "$1"; then
+            echo_heimdallr "Disabling output tracking for TTY-sensitive command: $1"
+            echo_heimdallr "This command's output will not be logged."
+            exec >/dev/tty 2>&1
+        fi
+    }
+
+    my_precmd() {
+        # Restore output to tee in case it was disabled for a TTY-sensitive command
+        exec >/dev/tty 2>&1
+        exec > >(tee -a "$log_path") 2>&1
     }
 
     # Enable `preexec` and `precmd` hooks
     autoload -Uz add-zsh-hook
     add-zsh-hook -d preexec my_preexec 2>/dev/null
+    add-zsh-hook -d precmd my_precmd 2>/dev/null
     add-zsh-hook preexec my_preexec
-
+    add-zsh-hook precmd my_precmd
     # Start logging output - add indentation
     exec > >(tee -a "$log_path") 2>&1
 }
