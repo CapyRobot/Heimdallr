@@ -72,6 +72,23 @@ def get_file_content(file_path: str) -> str:
         return file.read()
 
 
+def get_multiline_input() -> str:
+    print("Input your text. Type 'EOF' on a new line when done:", flush=True)
+    lines = []
+    while True:
+        try:
+            line = input()
+            if line.strip() == "EOF":
+                break
+            lines.append(line)
+        except EOFError:
+            break
+    print(f"--- EOF received ---", flush=True)
+    user_input = '\n'.join(lines)
+    LOGGER.debug(f"Multiline user input: {user_input}")
+    return user_input
+
+
 ############################################################################
 
 
@@ -145,11 +162,12 @@ class AIClient:
                     }
                 )
             elif context.type == "input":
-                data = input("input context > ")
+                data = get_multiline_input()
                 messages.append({"role": "user", "content": f"User provided input: {data}"})
 
         messages.append({"role": "user", "content": prompt})
 
+        print("... thinking ...", flush=True)
         completion = self.client.chat.completions.create(
             model=self.config.model,
             messages=messages,
