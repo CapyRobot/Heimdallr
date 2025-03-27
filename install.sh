@@ -19,8 +19,15 @@ if [ -f /usr/local/bin/heim ]; then
 fi
 sudo ln -s $(pwd)/run.sh /usr/local/bin/heim
 
-# add session.sh to path
-if [ -f /usr/local/bin/heim_session ]; then
+if [ -L /usr/local/bin/heim_session ] || [ -f /usr/local/bin/heim_session ]; then
     sudo rm /usr/local/bin/heim_session
 fi
-sudo ln -s $(pwd)/session.sh /usr/local/bin/heim_session
+
+if [ "$ZSH_VERSION" ]; then
+    sudo ln -s $(pwd)/heim_session/session_zsh_launcher.sh /usr/local/bin/heim_session
+elif [ "$BASH_VERSION" ]; then
+    sudo ln -s $(pwd)/heim_session/session_bash_launcher.sh /usr/local/bin/heim_session
+else
+    echo "Unsupported shell"
+    exit 1
+fi

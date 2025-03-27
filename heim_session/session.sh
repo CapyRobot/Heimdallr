@@ -1,11 +1,25 @@
-#!/usr/bin/env zsh
 
-# only zsh is supported for now
-# TODO: add support for bash
-if [ -z "$ZSH_VERSION" ]; then
-    echo "zsh is required to use heimdallr_session"
-    return 1
-fi
+# This script requires the following platform-specific functions to be defined prior to being used:
+# - is_sourced: returns true if the script is being sourced
+# - set-preexec-hook: sets a function as the preexec hook
+# - set-precmd-hook: sets a function as the precmd hook
+# - cleanup-hooks: removes the preexec and precmd hooks
+assert_required_functions_exist() {
+    assert_function_exists() {
+        fn_name="$1"
+        if ! command -v "$fn_name" >/dev/null 2>&1; then
+                    echo "Required function '$func' not found."
+                    echo "Use the entrypoint scripts provided, do not use this script directly."
+                    exit 1
+        fi
+    }
+
+    local required_functions=("is_sourced" "set-preexec-hook" "set-precmd-hook" "cleanup-hooks")
+    for func in "${required_functions[@]}"; do
+        assert_function_exists "$func"
+    done
+}
+assert_required_functions_exist
 
 LOG_DIR="$HOME/.cache/heimdallr/sessions"
 ARCHIVE_DIR="$LOG_DIR/archive"
@@ -17,7 +31,7 @@ echo_heimdallr() {
 }
 
 assert_script_is_sourced() {
-    if [[ $ZSH_EVAL_CONTEXT != *:file:* ]]; then
+    if ! is_sourced; then
         echo_heimdallr "This script must be sourced, not executed"
         exit 1
     fi
@@ -96,11 +110,9 @@ start_session() {
     }
 
     # Enable `preexec` and `precmd` hooks
-    autoload -Uz add-zsh-hook
-    add-zsh-hook -d preexec my_preexec 2>/dev/null
-    add-zsh-hook -d precmd my_precmd 2>/dev/null
-    add-zsh-hook preexec my_preexec
-    add-zsh-hook precmd my_precmd
+    set-preexec-hook my_preexec
+    set-precmd-hook my_precmd
+
     # Start logging output - add indentation
     exec > >(tee -a "$log_path") 2>&1
 }
@@ -118,11 +130,7 @@ stop_session() {
     exec >/dev/tty 2>&1
 
     # Remove logging hooks
-    autoload -Uz add-zsh-hook
-    add-zsh-hook -d preexec my_preexec 2>/dev/null
-
-    # Clear preexec_functions if used
-    unset preexec_functions
+    cleanup-hooks
 
     mv "$HEIMDALLR_SESSION_CMDS_FILE" "$ARCHIVE_DIR/session_$HEIMDALLR_SESSION_ID.log"
     log_stop >> "$ARCHIVE_DIR/session_$HEIMDALLR_SESSION_ID.log"
